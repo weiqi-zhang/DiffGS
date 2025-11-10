@@ -1,3 +1,5 @@
+import argparse
+
 import numpy as np
 from plyfile import PlyData, PlyElement
 import torch
@@ -139,19 +141,34 @@ def process(paths):
     return 
 
 
-with open('new_area.json', 'r') as fcc_file:
-    area = json.load(fcc_file)
-
-area_json = {}
-for data in area:
-    area_json[data[0]] = data[1]
-print(len(area_json))
-
 
 if __name__ == '__main__':
 
-    save_gaussian_folder = r'path/to/your/gaussian/splatting/folder'
-    save_path = r'path/to/your/save/data/folder'
+    parser = argparse.ArgumentParser(
+        description="批量处理高斯溅射（Gaussian Splatting）训练结果，生成用于后续任务的 .npy 文件。"
+    )
+    parser.add_argument(
+        "-s", "--source",
+        type=str,
+        required=True,
+        help="包含训练结果的根目录 (例如: ./output)"
+    )
+    parser.add_argument(
+        "-t", "--target",
+        type=str,
+        default="./trainset",
+        help="用于保存处理后 .npy 文件的根目录。如果未指定，则默认将 .npy 文件保存在其原始物体目录中。"
+    )
+    parser.add_argument(
+        "-w", "--workers",
+        type=int,
+        default=20,
+        help=f"用于并行处理的进程数。默认为20。"
+    )
+    args = parser.parse_args()
+
+    save_gaussian_folder = os.path.abspath(args.source)
+    save_path = os.path.abspath(args.target)
 
     pattern = "*.ply"
     paths = []
@@ -166,6 +183,6 @@ if __name__ == '__main__':
                     i = i + 1
     print(f"{len(paths)} left to be processed!")
 
-    workers = 35
-    pool = mp.Pool(workers)
+
+    pool = mp.Pool(args.workers)
     pool.map(process, paths)

@@ -31,9 +31,9 @@ class ModulationLoader(torch.utils.data.Dataset):
 
         print("data shape, dataset len: ", self.modulations[0].shape, len(self.modulations))
         #assert args.batch_size <= len(self.modulations)
-        
 
-        assert len(self.condition_paths) == len(self.modulations)
+        if self.conditional:
+            assert len(self.condition_paths) == len(self.modulations)
         
         
     def __len__(self):

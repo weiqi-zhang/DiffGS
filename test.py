@@ -76,12 +76,12 @@ def test_generation():
                 pred_color, pred_gs = model.gs_model.forward_with_plane_features(plane_feature, new_pc)
                 gaussian = torch.zeros(new_pc.shape[1], 59).cpu()
                 gaussian[:,:3] = new_pc[0]
-                gaussian[:,3:51]
                 gaussian[:,3:51] = pred_color[0]
                 gaussian[:,51] = 2.9444
                 gaussian[:,52:55] = 0.9 * torch.log(pred_gs[0,:,0:3])
                 gaussian[:,55:59] = pred_gs[0,:,3:7]
-                convert(gaussian.detach().cpu().numpy(), f"./generate/gaussian_{idx}.ply")
+                save_path = os.path.join(args.exp_dir, f"gaussian_{idx}.ply")
+                convert(gaussian.detach().cpu().numpy(), save_path)
                 idx = idx + 1
 
 if __name__ == "__main__":
@@ -99,6 +99,11 @@ if __name__ == "__main__":
     arg_parser.add_argument("--epoches", default=100, type=int, help='number of epoches to generate and reconstruct')
 
     arg_parser.add_argument("--filter", default=False, help='whether to filter when sampling conditionally')
+
+    arg_parser.add_argument(
+        "--resume", "-r", default=None,
+        help="continue from previous saved logs, integer value, 'last', or 'finetune'",
+    )
 
     args = arg_parser.parse_args()
     specs = json.load(open(os.path.join(args.exp_dir, "specs.json")))
