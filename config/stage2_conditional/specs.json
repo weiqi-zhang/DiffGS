@@ -1,5 +1,5 @@
 {
-  "Description" : "diffusion training (unconditional)",
+  "Description" : "diffusion training (conditional)",
   "Data_path" : "config/stage1/modulations",
   "context_path" : "pathto-your-contexts",
   "training_task": "diffusion",

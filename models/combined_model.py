@@ -33,6 +33,8 @@ class CombinedModel(pl.LightningModule):
             return self.train_modulation(x)
         elif self.task == 'diffusion':
             return self.train_diffusion(x)
+        if x is None:
+            return None
         
 
     def configure_optimizers(self):
@@ -110,7 +112,8 @@ class CombinedModel(pl.LightningModule):
 
         self.train()
 
-        context = x['context'] # (B, 1024, 3) or False if unconditional 
+        context = x.get('context', None)
+        # context = x['context'] # (B, 1024, 3) or False if unconditional
         latent = x['latent'] # (B, D)
 
         # unconditional training if cond is None 

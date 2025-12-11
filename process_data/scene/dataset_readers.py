@@ -104,12 +104,36 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
     sys.stdout.write('\n')
     return cam_infos
 
+
 def fetchPly(path):
     plydata = PlyData.read(path)
     vertices = plydata['vertex']
+
+    # 获取所有可用的属性名
+    properties = {prop.name for prop in vertices.properties}
+
+    # --- 读取位置 (必须存在) ---
     positions = np.vstack([vertices['x'], vertices['y'], vertices['z']]).T
-    colors = np.vstack([vertices['red'], vertices['green'], vertices['blue']]).T / 255.0
-    normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
+
+    # --- 读取颜色 (可选) ---
+    if 'red' in properties and 'green' in properties and 'blue' in properties:
+        colors = np.vstack([vertices['red'], vertices['green'], vertices['blue']]).T / 255.0
+    else:
+        # 如果没有颜色，则创建全白的颜色
+        colors = np.ones_like(positions) * 0.5
+        print(f"警告: 文件 {path} 中缺少颜色属性，已创建默认值。")
+
+    # --- 读取法向量 (可选) ---
+    # 检查 'nx' 系列或 'normal_x' 系列
+    if 'nx' in properties and 'ny' in properties and 'nz' in properties:
+        normals = np.vstack([vertices['nx'], vertices['ny'], vertices['nz']]).T
+    elif 'normal_x' in properties and 'normal_y' in properties and 'normal_z' in properties:
+        normals = np.vstack([vertices['normal_x'], vertices['normal_y'], vertices['normal_z']]).T
+    else:
+        # 如果没有法向量，则创建零向量
+        normals = np.zeros_like(positions)
+        print(f"警告: 文件 {path} 中缺少法向量属性，已创建零向量。")
+
     return BasicPointCloud(points=positions, colors=colors, normals=normals)
 
 def storePly(path, xyz, rgb):
@@ -166,7 +190,7 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
         storePly(ply_path, xyz, rgb)
     try:
         pcd = fetchPly(ply_path)
-    except:
+    except Exception as e:
         pcd = None
 
     scene_info = SceneInfo(point_cloud=pcd,
@@ -244,7 +268,8 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
         storePly(ply_path, xyz, SH2RGB(shs) * 255)
     try:
         pcd = fetchPly(ply_path)
-    except:
+    except Exception as e:
+        print(e)
         pcd = None
 
     scene_info = SceneInfo(point_cloud=pcd,

@@ -185,7 +185,8 @@ def load_model(model, optimizer, path):
 def save_code_to_conf(conf_dir):
     path = os.path.join(conf_dir, "code")
     os.makedirs(path, exist_ok=True)
-    for folder in ["utils", "models", "diff_utils", "dataloader", "metrics"]: 
+    for folder in ["utils", "models", "diff_utils", "dataloader"]:
+    # for folder in ["utils", "models", "diff_utils", "dataloader", "metrics"]:
         os.makedirs(os.path.join(path, folder), exist_ok=True)
         os.system("""cp -r ./{0}/* "{1}" """.format(folder, os.path.join(path, folder)))
 

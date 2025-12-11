@@ -1,0 +1,6 @@
+.idea
+process_data/output
+process_data/trainset
+*.ply
+*.npy
+build

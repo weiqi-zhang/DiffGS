@@ -148,3 +148,112 @@ If you find our code or paper useful, please consider citing
         booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
         year={2024}
     }
+
+
+---
+
+- 安装依赖时，出现`ERROR: Could not find a version that satisfies the requirement clip==1.0 (from versions: 0.0.1, 0.1.0, 0.2.0)`，需要自行从git安装，并注释了对应`environment.yml`文件：
+
+```shell
+python -m pip install git+https://github.com/openai/CLIP.git@dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1
+```
+
+另外，手动安装子模块：
+```shell
+python -m pip install process_data/submodules/diff-gaussian-rasterization
+python -m pip install process_data/submodules/simple-knn
+```
+
+否则，会出现下载迟滞问题。
+
+---
+
+- 通过hugging face申请获得了下载ShapeNetCore数据集的权限，通过token直接把数据从hugging face下载到服务器上，避免了网盘传输或本地传输速度过慢的问题。
+
+---
+
+- 在数据准备工作中，需要安装2.9版本的blender：
+
+```shell
+cd /opt
+wget https://download.blender.org/release/Blender2.93/blender-2.93.2-linux-x64.tar.xz
+tar -xvf blender-2.93.2-linux-x64.tar.xz
+echo 'export PATH=$PATH:/opt/blender-2.93.2-linux-x64/' >> ~/.bashrc
+rm blender-2.93.2-linux-x64.tar.xz
+```
+
+---
+
+- 在headless的server中，运行render_blender，需要安装`xvfb`：
+
+```shell
+apt update && apt install xvfb -y
+```
+
+然后如下运行脚本：
+```shell
+xvfb-run -a blender --background --python render_blender.py -- --output_folder {images_path} {mesh_path}
+```
+
+---
+
+- 在编制数据集目录结构时，由于ShapeNetCore体积太大，编写了一个自动化解压脚本，筛选并解压了其中数据量较小的类别。
+
+- 在针对obj文件进行渲染时，由于每个类别中有非常多物体，例如，chair类别中有9000多个文件夹，不可能逐个执行`render_blender.py`文件进行渲染。因此，添加了针对obj文件的批处理脚本，可以一键渲染多个obj文件并保持对应路径。
+```shell
+python render_blender_batch.py -s {shapenet_folder}
+```
+
+---
+
+- 采集点云时，出现`AttributeError: 'Scene' object has no attribute 'area'.`，修改了`sample_points.py`中对应代码，手动将scene转换为单一mesh，然后再调用`mesh.sample`函数进行点云采样。同时，修改了点云文件保存的路径，保存在物品id对应的文件夹下，这样`dataset_reader.py`才能正确读取。
+
+---
+
+- 运行`train_gaussian.py`，准备GS数据时，出现`ValueError: no field of name nx'`，通过断点调试和单步执行，定位错误到文件`dataset_readers.py`的`fetchPly`函数，意思是读取的点云文件中没有法线数据，判断是`sample_points.py`中`point_cloud.export`函数没有保存法线数据。此外，还发现`fetchPly`函数读取到的点云文件中颜色值都是0。于是，不再使用`point_cloud.export`方法保存数据，转而手动构建plyfile文件，确保点云文件中包含xyz、rgb、normal等数据。
+
+---
+
+- 新建`train_gaussian_batch.py`，批量准备多个场景的数据，默认保存在`process_data/output`下，文件路径参考ShapeNetCore路径，遵循先类别后物体的双重目录结构。
+
+---
+
+- 修正了准备stage2阶段特征向量数据时，运行`python test.py -e config/stage1/ -r {num epoch}`报错的bug，具体原因为`test.py`中未加入`-r`parser参数。现在运行参数为`python test.py -e config/stage1/ -r {ckpt_fileName}`。
+
+---
+
+- 修正了在stage2阶段unconditional diffusion training报错`TypeError: default_collate: batch must contain tensors, numpy arrays, numbers, dicts or lists; found <class 'NoneType'>`的bug，具体原因为在无条件输入的情况下，数据加载器`ModulationLoader`的`__getitem__`函数会返回包含None值的字典，而torch在按批次加载数据时，会把字典中同一个键的值堆叠起来，遇到None就出错了。解决方法为在`train.py`中略微修改`torch.utils.data.DataLoader`创建对象的参数，在参数`collate_fn`中传入一个经过略微修改的`default_collate`，规避了遇到None值的堆叠。
+
+---
+
+- 利用保存的ckpt，进行无条件输入的diffusion生成场景：修改`config/generate/specs.json`中的ckpt路径，然后运行：
+
+```shell
+python test.py -e config/generate/ --epoches 1 -n 5
+```
+
+`epoches`控制生成的轮数，`-n`控制每轮生成的数量。
+
+目前，源代码仓库没有提供有条件生成场景的代码。但是，在`diffusion.py`中，另有一个成员函数`generate_from_pc`，而`test.py`中调用的是`generate_unconditional`，因此，函数`generate_from_pc`应该就是原文中用来完成point2GS任务的方法。
+
+---
+
+- 可视化：
+
+1. SIBR_viewer只能可视化数据准备阶段的GS场景，无法可视化diffusion生成的GS场景，因为SIBR_viewer对目录结构有要求。
+2. `render.py`文件用来批量生成数据准备阶段的GS场景的渲染图片，并保证相机视角与训练数据一致，应该是用来准备计算PSNR重建指标的。但是同样有一个问题，`render.py`对目录结构也有要求，无法直接渲染diffusion生成的GS场景。
+3. 实时可视化diffusion生成的GS场景的方法：导入生成的ply场景，`https://superspl.at/editor`
+
+---
+
+- 条件输入的形式：
+
+根据代码逻辑，需要在`config1/modulations`中准备好该场景对应的一个或多个条件输入转化出的特征向量，文件格式形同场景的潜在向量`latent.txt`，且以`text`开头。在训练时会随机在这些条件输入的特征向量中选择一个，来训练条件生成模型。
+
+关键问题：如何准备条件输入的特征向量？代码仓库中没有提供相关脚本，也没有任何说明。
+
+推测： 条件输入数据需要另外手动生成，例如使用CLIP提取特征（environment.yaml中要求了这个库），并保存为以`text`开头的文件名，放置在同级目录下。
+
+1. 根据代码逻辑，条件输入的维度是[B, N, 3]，后续经过`conv_pointnet`，即，直接用点云作为条件输入。但是，按照论文中的叙述，`partial 3DGS`作为条件输入，那么也应该是[B, N, 59]。
+2. 如果是文本或图像的特征向量作为条件输入，那么应该是[B, D]，后续也不可能经过`conv_pointnet`，就需要另外的处理方式。
+3. 原文消融实验里涉及的重建指标是关于GS VAE模块的，与diffusion生成无关。因此，不是`partial 3DGS`作为条件输入的结果，应该是point2GS任务或者GS2GS的重建结果。

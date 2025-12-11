@@ -31,9 +31,9 @@ class ModulationLoader(torch.utils.data.Dataset):
 
         print("data shape, dataset len: ", self.modulations[0].shape, len(self.modulations))
         #assert args.batch_size <= len(self.modulations)
-        
 
-        assert len(self.condition_paths) == len(self.modulations)
+        if self.conditional:
+            assert len(self.condition_paths) == len(self.modulations)
         
         
     def __len__(self):
@@ -66,7 +66,10 @@ class ModulationLoader(torch.utils.data.Dataset):
             for filename in os.listdir(os.path.join(data_source, str(idx))):
                 if fnmatch.fnmatch(filename, "text*"):
                     condition_filename = os.path.join(data_source, str(idx), filename)
-                    tmp.append(torch.from_numpy(np.loadtxt(condition_filename)).unsqueeze(0).float())
+                    # for flip augment
+                    # tmp.append(torch.from_numpy(np.loadtxt(condition_filename)).unsqueeze(0).float())
+                    # for point cloud augment
+                    tmp.append(torch.from_numpy(np.loadtxt(condition_filename)).float())
             filepaths[idx] = tmp
         return files, filepaths
         

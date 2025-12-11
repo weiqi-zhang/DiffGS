@@ -21,8 +21,21 @@ from diff_utils.helpers import *
 
 from dataloader.modulation_loader import ModulationLoader
 from dataloader.gaussian_loader import GaussianLoader
+from torch.utils.data._utils.collate import default_collate
 
-
+def collate_keep_none(batch):
+    # batch 是一个由样本字典组成的列表
+    keys = batch[0].keys()
+    out = {}
+    for k in keys:
+        vals = [b[k] for b in batch]
+        # 如果这一列全是 None，就保留为 None（适配无条件训练）
+        if all(v is None for v in vals):
+            out[k] = None
+        else:
+            # 否则正常拼
+            out[k] = default_collate(vals)
+    return out
 
 def train():
     
@@ -34,7 +47,7 @@ def train():
     train_dataloader = torch.utils.data.DataLoader(
             train_dataset,
             batch_size=args.batch_size, num_workers=args.workers,
-            drop_last=True, shuffle=True, pin_memory=True, persistent_workers=True
+            drop_last=True, shuffle=True, collate_fn=collate_keep_none, pin_memory=True, persistent_workers=True
         )
 
     # creates a copy of current code / files in the config folder
@@ -70,7 +83,7 @@ def train():
 
     print("start training")
     trainer = pl.Trainer(accelerator='gpu', devices=-1, precision=32, max_epochs=specs["num_epochs"], callbacks=callbacks, log_every_n_steps=1,
-                        default_root_dir=os.path.join("tensorboard_logs", args.exp_dir))
+                        default_root_dir=args.exp_dir)
     trainer.fit(model=model, train_dataloaders=train_dataloader, ckpt_path=resume)
     
 if __name__ == "__main__":
