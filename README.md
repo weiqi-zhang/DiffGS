@@ -152,21 +152,16 @@ If you find our code or paper useful, please consider citing
 
 ---
 
-- 安装依赖时，出现`ERROR: Could not find a version that satisfies the requirement clip==1.0 (from versions: 0.0.1, 0.1.0, 0.2.0)`，需要先行从git安装，并修改对应`environment.yml`文件中：
+- 安装依赖时，出现`ERROR: Could not find a version that satisfies the requirement clip==1.0 (from versions: 0.0.1, 0.1.0, 0.2.0)`，需要自行从git安装，并注释了对应`environment.yml`文件：
 
 ```shell
-pip install git+https://github.com/openai/CLIP.git
+python -m pip install git+https://github.com/openai/CLIP.git@dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1
 ```
 
 另外，手动安装子模块：
 ```shell
-pip install process_data/submodules/diff-gaussian-rasterization
-pip install process_data/submodules/simple-knn
-```
-
-最后再执行环境更新指令：
-```shell
-conda env update -f environment.yml
+python -m pip install process_data/submodules/diff-gaussian-rasterization
+python -m pip install process_data/submodules/simple-knn
 ```
 
 否则，会出现下载迟滞问题。
@@ -211,7 +206,7 @@ python render_blender_batch.py -s {shapenet_folder}
 
 ---
 
-- 采集点云时，出现`AttributeError: 'Scene' object has no attribute 'area'.`，修改了`sample_points.py`中对应代码，手动将scene转换为单一mesh，然后再调用mesh.sample函数进行点云采样。同时，修改了点云文件保存的路径，保存在物品id对应的文件夹下，这样dataset_reader.py才能正确读取。
+- 采集点云时，出现`AttributeError: 'Scene' object has no attribute 'area'.`，修改了`sample_points.py`中对应代码，手动将scene转换为单一mesh，然后再调用`mesh.sample`函数进行点云采样。同时，修改了点云文件保存的路径，保存在物品id对应的文件夹下，这样`dataset_reader.py`才能正确读取。
 
 ---
 
@@ -223,7 +218,7 @@ python render_blender_batch.py -s {shapenet_folder}
 
 ---
 
-- 修正了准备stage2阶段数据时，运行`python test.py -e config/stage1/ -r {num epoch}`报错的bug，具体原因为`test.py`中未加入`-r`parser参数。现在运行参数为`python test.py -e config/stage1/ -r {ckpt file_name}`。
+- 修正了准备stage2阶段特征向量数据时，运行`python test.py -e config/stage1/ -r {num epoch}`报错的bug，具体原因为`test.py`中未加入`-r`parser参数。现在运行参数为`python test.py -e config/stage1/ -r {ckpt_fileName}`。
 
 ---
 
@@ -231,4 +226,34 @@ python render_blender_batch.py -s {shapenet_folder}
 
 ---
 
-生成的npy场景如何可视化并测试指标
+- 利用保存的ckpt，进行无条件输入的diffusion生成场景：修改`config/generate/specs.json`中的ckpt路径，然后运行：
+
+```shell
+python test.py -e config/generate/ --epoches 1 -n 5
+```
+
+`epoches`控制生成的轮数，`-n`控制每轮生成的数量。
+
+目前，源代码仓库没有提供有条件生成场景的代码。但是，在`diffusion.py`中，另有一个成员函数`generate_from_pc`，而`test.py`中调用的是`generate_unconditional`，因此，函数`generate_from_pc`应该就是原文中用来完成point2GS任务的方法。
+
+---
+
+- 可视化：
+
+1. SIBR_viewer只能可视化数据准备阶段的GS场景，无法可视化diffusion生成的GS场景，因为SIBR_viewer对目录结构有要求。
+2. `render.py`文件用来批量生成数据准备阶段的GS场景的渲染图片，并保证相机视角与训练数据一致，应该是用来准备计算PSNR重建指标的。但是同样有一个问题，`render.py`对目录结构也有要求，无法直接渲染diffusion生成的GS场景。
+3. 实时可视化diffusion生成的GS场景的方法：导入生成的ply场景，`https://superspl.at/editor`
+
+---
+
+- 条件输入的形式：
+
+根据代码逻辑，需要在`config1/modulations`中准备好该场景对应的一个或多个条件输入转化出的特征向量，文件格式形同场景的潜在向量`latent.txt`，且以`text`开头。在训练时会随机在这些条件输入的特征向量中选择一个，来训练条件生成模型。
+
+关键问题：如何准备条件输入的特征向量？代码仓库中没有提供相关脚本，也没有任何说明。
+
+推测： 条件输入数据需要另外手动生成，例如使用CLIP提取特征（environment.yaml中要求了这个库），并保存为以`text`开头的文件名，放置在同级目录下。
+
+1. 根据代码逻辑，条件输入的维度是[B, N, 3]，后续经过`conv_pointnet`，即，直接用点云作为条件输入。但是，按照论文中的叙述，`partial 3DGS`作为条件输入，那么也应该是[B, N, 59]。
+2. 如果是文本或图像的特征向量作为条件输入，那么应该是[B, D]，后续也不可能经过`conv_pointnet`，就需要另外的处理方式。
+3. 原文消融实验里涉及的重建指标是关于GS VAE模块的，与diffusion生成无关。因此，不是`partial 3DGS`作为条件输入的结果，应该是point2GS任务或者GS2GS的重建结果。

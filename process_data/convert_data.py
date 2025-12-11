@@ -157,7 +157,7 @@ if __name__ == '__main__':
         "-t", "--target",
         type=str,
         default="./trainset",
-        help="用于保存处理后 .npy 文件的根目录。如果未指定，则默认将 .npy 文件保存在其原始物体目录中。"
+        help="用于保存处理后 .npy 文件的根目录。"
     )
     parser.add_argument(
         "-w", "--workers",

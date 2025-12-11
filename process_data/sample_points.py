@@ -103,8 +103,8 @@ def sample(arg):
             point_colors = mesh.visual.face_colors[faces_idx]
         else:
             # 如果没有颜色，则使用默认的灰色
-            print("- 警告: 网格无面颜色，使用默认黑色。")
-            point_colors = np.full((num_points, 4), [0, 0, 0, 255], dtype=np.uint8)
+            print("- 警告: 网格无面颜色，使用默认。")
+            point_colors = np.full((num_points, 4), [128, 128, 128,255], dtype=np.uint8)
 
         # 填充颜色数据 (注意 trimesh 颜色可能是 RGBA，我们只需要 RGB)
         vertex_data['red'] = point_colors[:, 0]
@@ -120,16 +120,6 @@ def sample(arg):
 
         print(f"[{name}] ✅ 成功采样 {num_points} 点 (含法向量)，并使用 plyfile 手动保存到 {save_path}。")
         print(f"   -> 文件应包含字段: {vertex_data.dtype.names}")
-
-        # # 构造包含法向量和位置的点云
-        # point_cloud = trimesh.points.PointCloud(
-        #     vertices=points,
-        #     vertex_normals=normals  # 确保这里传递的是 vertex_normals
-        # )
-        #
-        # save_path = os.path.join(target_dir, 'points3d.ply')
-        # point_cloud.export(save_path)
-        # print(f"[{name}] ✅ 成功采样 {num_points} 点 (含法向量) 并保存到 {save_path}。")
 
     except Exception as e:
         print(f"\n❌ ERROR processing {full_path}: {e}")

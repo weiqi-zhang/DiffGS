@@ -66,7 +66,10 @@ class ModulationLoader(torch.utils.data.Dataset):
             for filename in os.listdir(os.path.join(data_source, str(idx))):
                 if fnmatch.fnmatch(filename, "text*"):
                     condition_filename = os.path.join(data_source, str(idx), filename)
-                    tmp.append(torch.from_numpy(np.loadtxt(condition_filename)).unsqueeze(0).float())
+                    # for flip augment
+                    # tmp.append(torch.from_numpy(np.loadtxt(condition_filename)).unsqueeze(0).float())
+                    # for point cloud augment
+                    tmp.append(torch.from_numpy(np.loadtxt(condition_filename)).float())
             filepaths[idx] = tmp
         return files, filepaths
         

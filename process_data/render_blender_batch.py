@@ -84,7 +84,6 @@ if __name__ == '__main__':
 
                 # 检查目标目录是否已存在
                 if os.path.exists(output_folder) and os.path.exists(os.path.join(output_folder, 'transforms_test.json')):
-                    # 简化处理：根据用户要求，只要目标目录存在就跳过
                         skipped_count += 1
                         continue  # 跳过这个OBJ文件
 
